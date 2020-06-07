@@ -15,7 +15,7 @@ KEEP=false
 VERBOSE=false
 PERMISSIONS=false
 INSTALL=false
-VERSION=1.1.0
+VERSION=1.1.1
 
 # Parse script args
 POSITIONAL=()
@@ -29,10 +29,10 @@ while [[ $# -gt 0 ]]; do
             FILENAME=$(basename "$2")
 
             if [ -f "$FILEPATH/$FILENAME" ]; then
-                echo File exists, preparing file
+                echo [DONE] Check file exists
                 FILE=true
             else
-                echo File does not exist
+                echo [FAIL] Check file exists
                 exit 1
             fi
             shift # past argument
@@ -113,11 +113,15 @@ fi
 
 # Install onto system
 if [ $INSTALL == "true" ]; then
+    echo -n "[    ] Installing"
     mkdir -p /home/$(whoami)/.local/bin/
     SCRIPT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
     cp "$SCRIPT"/"$(basename $0)" /home/$(whoami)/.local/bin/ 2> /dev/null
     alias spleeterd >/dev/null 2>&1 && echo "alias spleeterd='bash /home/$(whoami)/.local/bin/$(basename $0)'" >> /home/$(whoami)/.bashrc
-    echo "Installation finished. You should now be able to run "spleeterd -h" to see the help page."
+    echo -ne "\r[DONE] Installing"
+    echo
+    echo
+    echo "Run \"spleeterd -h\" to get started"
     exit 0
 fi
     
@@ -135,26 +139,32 @@ if [ $YOUTUBE != "false" ]; then
     FOLDER=$(date +%s)
     mkdir -p /tmp/$FOLDER
     FILEPATH="/tmp/$FOLDER"
-    echo Downloading YouTube audio
+    echo -n "[    ] Downloading YouTube audio"
     CD=$(pwd)
     cd /tmp/$FOLDER/
-    youtube-dl --extract-audio --audio-format mp3 --output "%(title)s.%(ext)s" $YOUTUBE 
+    if [ $VERBOSE == 'true' ]; then
+        youtube-dl --extract-audio --audio-format mp3 --output "%(title)s.%(ext)s" $YOUTUBE
+    else
+        youtube-dl --extract-audio --audio-format mp3 --output "%(title)s.%(ext)s" $YOUTUBE > /dev/null
+    fi
     cd $CD
     FILENAME=$(ls /tmp/$FOLDER/ | head -n 1)
+    echo -ne "\r[DONE] Downloading YouTube audio"
     echo
 fi
 
 #Pull latest spleeter image
-echo Pulling latest spleeter image
+echo -n "[    ] Pulling latest spleeter image"
 if [ $VERBOSE == 'true' ]; then
     docker pull researchdeezer/spleeter:latest
 else
     docker pull researchdeezer/spleeter:latest > /dev/null
 fi
-
-echo Splitting \"$FILENAME\" into $STEMS stems with a $KHZ kHz cutoff
+echo -ne "\r[DONE] Pulling latest spleeter image"
 echo
 
+echo -n "[    ] Splitting \"$FILENAME\" into $STEMS stems with a $KHZ kHz cutoff"
+echo
 if [ $KHZ -eq 11 ]; then
     STEMS="$STEMS"stems
 elif [ $KHZ -eq 16 ]; then
@@ -167,13 +177,20 @@ else
     docker run -v "$FILEPATH":/input -v $(pwd)/spleeter:/output researchdeezer/spleeter separate -i "/input/$FILENAME" -o /output -p spleeter:$STEMS --mwf
 fi
 
+echo -ne "\r[DONE] Splitting \"$FILENAME\" into $STEMS stems with a $KHZ kHz cutoff"
+echo
+
 if [ $PERMISSIONS == "true" ] || [ $KEEP == "true" ]; then
     echo
-    echo Fixing permissions
+    echo -n "[    ] Fixing permissions"
     sudo chown -R $(whoami):$(whoami) $(pwd)/spleeter
+    echo -ne "\r[DONE] Fixing permissions"
+    echo
 fi
 
 if [ $KEEP == "true" ]; then
-    echo Moving original audio
+    echo -n "[    ] Moving original audio"
     mv "$FILEPATH/$FILENAME" "$(pwd)/spleeter/$(basename -s ".mp3" "$FILENAME")/original.mp3"
+    echo -ne "\r[DONE] Moving original audio"
+    echo
 fi
