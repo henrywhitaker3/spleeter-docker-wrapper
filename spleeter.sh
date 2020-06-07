@@ -10,10 +10,12 @@ STEMS=2
 KHZ=11
 HELP=false
 FILE=false
+YOUTUBE=false
+KEEP=false
 VERBOSE=false
 PERMISSIONS=false
 INSTALL=false
-VERSION=1.0.0
+VERSION=1.1.0
 
 # Parse script args
 POSITIONAL=()
@@ -45,6 +47,11 @@ while [[ $# -gt 0 ]]; do
             shift # past argument
             shift # past value
             ;;
+        -y|--youtube)
+            YOUTUBE=$2
+            shift # past argument
+            shift # past value
+            ;;
         -c|--cutoff)
             if [ $2 -eq 16 ]; then
                 KHZ=16
@@ -54,6 +61,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -h|--help)
             HELP=true
+            shift # past argument
+            ;;
+        -k|--keep)
+            KEEP=true
             shift # past argument
             ;;
         -p|--fix-permissions)
@@ -95,6 +106,8 @@ if [ $HELP == "true" ]; then
     echo "  -p --fix-permissions    Fix permissions from docker output (requires sudo)"
     echo "  -s --stems              The number of stems to split the file into (takes 2, 4 or 5 default: 2)"
     echo "  -v --verbose            Enable verbose output"
+    echo "  -y --youtube            Specify a YouTube URL to download source audio for"
+    echo "      -k --keep           Keep the source audio from YouTube downloaded audio"
     exit 0
 fi
 
@@ -110,7 +123,7 @@ fi
     
 
 # Check that file var is set
-if [ $FILE == "false" ]; then
+if [ $FILE == "false" ] && [ $YOUTUBE == "false" ]; then
     echo You must supply a filename by using -f
     echo If you need help, run "spleeter -h"
     exit 1
@@ -118,7 +131,20 @@ fi
 
 mkdir -p ${PWD}/spleeter
 
-# Pull latest spleeter image
+if [ $YOUTUBE != "false" ]; then
+    FOLDER=$(date +%s)
+    mkdir -p /tmp/$FOLDER
+    FILEPATH="/tmp/$FOLDER"
+    echo Downloading YouTube audio
+    CD=$(pwd)
+    cd /tmp/$FOLDER/
+    youtube-dl --extract-audio --audio-format mp3 --output "%(title)s.%(ext)s" $YOUTUBE 
+    cd $CD
+    FILENAME=$(ls /tmp/$FOLDER/ | head -n 1)
+    echo
+fi
+
+#Pull latest spleeter image
 echo Pulling latest spleeter image
 if [ $VERBOSE == 'true' ]; then
     docker pull researchdeezer/spleeter:latest
@@ -141,8 +167,13 @@ else
     docker run -v "$FILEPATH":/input -v $(pwd)/spleeter:/output researchdeezer/spleeter separate -i "/input/$FILENAME" -o /output -p spleeter:$STEMS --mwf
 fi
 
-if [ $PERMISSIONS == "true" ]; then
+if [ $PERMISSIONS == "true" ] || [ $KEEP == "true" ]; then
     echo
     echo Fixing permissions
     sudo chown -R $(whoami):$(whoami) $(pwd)/spleeter
+fi
+
+if [ $KEEP == "true" ]; then
+    echo Moving original audio
+    mv "$FILEPATH/$FILENAME" "$(pwd)/spleeter/$(basename -s ".mp3" "$FILENAME")/original.mp3"
 fi

@@ -38,6 +38,12 @@ This command will split audio into instrumental and vocals:
 spleeterd -f test.mp3
 ```
 
+Use youtube-dl to download the source audio with `-y` or `--youtube`:
+
+```bash
+spleeterd -y <url>
+```
+
 Specify how many stems to split the audio into with `-s` or `--stems`:
 
 ```bash
